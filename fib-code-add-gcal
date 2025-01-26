@@ -1,0 +1,63 @@
+function addEventsToSheetOwnerCalendarWithColors() {
+  const sheetName = "SProblems"; // Name of the sheet
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const fileId = spreadsheet.getId();
+  const file = DriveApp.getFileById(fileId);
+  const ownerEmail = file.getOwner().getEmail(); // Get the owner's email
+
+  // Access the owner's calendar
+  const calendar = CalendarApp.getCalendarById(ownerEmail);
+
+  const data = sheet.getDataRange().getValues();
+  const today = new Date();
+  today.setHours(0, 0, 0); // Reset time to compare dates
+
+
+
+  // Loop through the rows of the sheet (starting from the 2nd row to skip the header)
+  for (let i = 1; i < data.length; i++) {
+    for (let j = 1; j < 14; j++) {
+      const eventDate = new Date(data[i][j]);
+      console.log(eventDate); 
+      const eventDescription = data[i][0];
+
+      // Get the cell reference for the event description
+      const cell = sheet.getRange(i+1, 1); // Row index starts from 1, column 1 for `data[i][0]`
+
+      // Extract the hyperlink
+      let url = null;
+      const formula = cell.getFormula();
+      if (formula && formula.startsWith('=HYPERLINK')) {
+        url = formula.match(/"([^"]+)"/)[1]; // Extract URL from HYPERLINK formula
+      } else {
+        const richTextValue = cell.getRichTextValue();
+        if (richTextValue) {
+          url = richTextValue.getLinkUrl();
+        }
+      }
+
+      const problemLevel = data[i][1];
+
+      let eventColor;
+      if (problemLevel == 'Very Easy') eventColor = CalendarApp.EventColor.PALE_BLUE
+      if (problemLevel == 'Easy') eventColor = CalendarApp.EventColor.MAUVE
+      if (problemLevel == 'Medium') eventColor = CalendarApp.EventColor.YELLOW
+      if (problemLevel == 'Hard') eventColor = CalendarApp.EventColor.PALE_RED
+
+      const eventName = `Scaler|${problemLevel} → ${eventDescription}`;
+
+      if (eventDate.toDateString() === today.toDateString()) {
+        
+        try {
+          const event = calendar.createAllDayEvent(eventName, eventDate, { description: url });
+          event.setColor(eventColor);
+
+          Logger.log(`Event added to owner's calendar: ${eventName} on ${eventDate}`);
+        } catch (error) {
+          Logger.log('Error adding event to calendar: ' + error.message);
+        }
+      }
+    }
+  }
+}
